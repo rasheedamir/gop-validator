@@ -43,6 +43,10 @@ public class Frame {
     public Frame() {
     }
 
+    public boolean isIframe() {
+        return this.key_frame == 1 ? true : false;
+    }
+
     public Integer getChannels() {
         return channels;
     }

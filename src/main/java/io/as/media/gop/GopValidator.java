@@ -2,10 +2,9 @@ package io.as.media.gop;
 
 import org.apache.commons.io.Charsets;
 
-import java.io.*;
-import java.nio.charset.Charset;
-import java.nio.file.Files;
-import java.nio.file.Paths;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -38,6 +37,24 @@ public class GopValidator
             framesPerBitrate.put(bitrate, findFrames(cmd));
 
             System.out.println("processed bitrate - " + bitrate);
+
+            //break;
+        }
+
+        // print index's of I frames
+        for (Map.Entry<String, Frames> entry: framesPerBitrate.entrySet())
+        {
+            int index = 1;
+            for (Frame frame: entry.getValue().getFrames())
+            {
+                if(frame.isIframe())
+                {
+                    System.out.println(index);
+                }
+                index++;
+            }
+
+            //break;
         }
     }
 
@@ -100,12 +117,6 @@ public class GopValidator
             brIn.close();
         }
         return Frames.fromJSON(json.toString());
-    }
-
-    private static String readFile(String path, Charset encoding) throws IOException
-    {
-        byte[] encoded = Files.readAllBytes(Paths.get(path));
-        return new String(encoded, encoding);
     }
 
     private static boolean hasVideo(final String mediaFilePathAndName) throws Exception
