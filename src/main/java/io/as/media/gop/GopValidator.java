@@ -5,10 +5,7 @@ import org.apache.commons.io.Charsets;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.InputStreamReader;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * Created by Rasheed on 2015-09-07.
@@ -41,20 +38,40 @@ public class GopValidator
             //break;
         }
 
+        Map<String, Collection<Integer>> bitratesIFramesLocations = new HashMap<>();
+
         // print index's of I frames
         for (Map.Entry<String, Frames> entry: framesPerBitrate.entrySet())
         {
             int index = 1;
+            //System.out.println("STARTING SHOWING IFRAMES OF BITRATE" + entry.getKey());
+            Collection<Integer> iframeLocations = new ArrayList<>();
             for (Frame frame: entry.getValue().getFrames())
             {
                 if(frame.isIframe())
                 {
-                    System.out.println(index);
+                    //System.out.println(index + " - " + frame.getPkt_pts_time());
+                    iframeLocations.add(index);
                 }
                 index++;
             }
-
+            //System.out.println("DONE SHOWING IFRAMES OF BITRATE" + entry.getKey());
+            //System.out.println("++++++++++++++++++++++++++++++++++++++++++++++++++");
+            bitratesIFramesLocations.put(entry.getKey(), iframeLocations);
             //break;
+        }
+
+        // pick up item zero
+        Map.Entry<String, Collection<Integer>> firstEntry = bitratesIFramesLocations.entrySet().iterator().next();
+
+        for(Map.Entry<String, Collection<Integer>>  entry: bitratesIFramesLocations.entrySet())
+        {
+            Collection<Integer> firstBitrateIframeLocations = firstEntry.getValue();
+            Collection<Integer> nextBitrateIframeLocations = entry.getValue();
+
+            firstBitrateIframeLocations.removeAll(nextBitrateIframeLocations);
+            System.out.println(String.format("comparing %s with %s", firstEntry.getKey(), entry.getKey()));
+            System.out.println(firstBitrateIframeLocations);
         }
     }
 
@@ -145,7 +162,8 @@ public class GopValidator
 
         String line;
         StringBuilder streamsListAsString = new StringBuilder();
-        while((line = brIn.readLine())!=null) {
+        while((line = brIn.readLine())!=null)
+        {
             streamsListAsString.append(line);
         }
 
