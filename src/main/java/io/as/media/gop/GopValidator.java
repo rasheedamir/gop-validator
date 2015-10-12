@@ -39,6 +39,7 @@ public class GopValidator
         }
 
         Map<String, Collection<Integer>> bitratesIFramesLocations = new HashMap<>();
+        Map<String, Collection<Double>> bitratesIFramesTimings = new HashMap<>();
 
         // print index's of I frames
         for (Map.Entry<String, Frames> entry: framesPerBitrate.entrySet())
@@ -46,11 +47,13 @@ public class GopValidator
             int index = 1;
             //System.out.println("STARTING SHOWING IFRAMES OF BITRATE" + entry.getKey());
             Collection<Integer> iframeLocations = new ArrayList<>();
+            Collection<Double> iframeTimes = new ArrayList<>();
             for (Frame frame: entry.getValue().getFrames())
             {
                 if(frame.isIframe())
                 {
                     //System.out.println(index + " - " + frame.getPkt_pts_time());
+                    iframeTimes.add(frame.getPkt_pts_time());
                     iframeLocations.add(index);
                 }
                 index++;
@@ -58,7 +61,7 @@ public class GopValidator
             //System.out.println("DONE SHOWING IFRAMES OF BITRATE" + entry.getKey());
             //System.out.println("++++++++++++++++++++++++++++++++++++++++++++++++++");
             bitratesIFramesLocations.put(entry.getKey(), iframeLocations);
-            //break;
+            bitratesIFramesTimings.put(entry.getKey(), iframeTimes);
         }
 
         // pick up item zero
@@ -66,12 +69,31 @@ public class GopValidator
 
         for(Map.Entry<String, Collection<Integer>>  entry: bitratesIFramesLocations.entrySet())
         {
-            Collection<Integer> firstBitrateIframeLocations = firstEntry.getValue();
+            Collection<Integer> copyFirstLocationsEntry = new ArrayList<>(firstEntry.getValue());
             Collection<Integer> nextBitrateIframeLocations = entry.getValue();
 
-            firstBitrateIframeLocations.removeAll(nextBitrateIframeLocations);
-            System.out.println(String.format("comparing %s with %s", firstEntry.getKey(), entry.getKey()));
-            System.out.println(firstBitrateIframeLocations);
+            copyFirstLocationsEntry.removeAll(nextBitrateIframeLocations);
+            if(copyFirstLocationsEntry.size() > 0)
+            {
+                System.out.println(String.format("comparing index of %s with %s", firstEntry.getKey(), entry.getKey()));
+                System.out.println("GOP SIZE MISMATCH!");
+            }
+        }
+
+        // pick up item zero
+        Map.Entry<String, Collection<Double>> firstTimingsEntry = bitratesIFramesTimings.entrySet().iterator().next();
+
+        for(Map.Entry<String, Collection<Double>>  entry: bitratesIFramesTimings.entrySet())
+        {
+            Collection<Double> copyFirstTimingsEntry = new ArrayList<>(firstTimingsEntry.getValue());
+            Collection<Double> nextBitrateIframeTimings = entry.getValue();
+
+            copyFirstTimingsEntry.removeAll(nextBitrateIframeTimings);
+            if(copyFirstTimingsEntry.size() > 0)
+            {
+                System.out.println(String.format("comparing timings of %s with %s", firstEntry.getKey(), entry.getKey()));
+                System.out.println("OUCH .... GOP TIMINGS SIZE MISMATCH!");
+            }
         }
     }
 

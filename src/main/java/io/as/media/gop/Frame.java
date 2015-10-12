@@ -9,7 +9,7 @@ import javax.annotation.Generated;
 @Generated("org.jsonschema2pojo")
 public class Frame {
 	@JsonProperty("pkt_dts") private Integer pkt_dts;
-	@JsonProperty("pkt_pts_time") private Float pkt_pts_time;
+	@JsonProperty("pkt_pts_time") private Double pkt_pts_time;
 	@JsonProperty("pix_fmt") private String pix_fmt;
 	@JsonProperty("pkt_duration") private Integer pkt_duration;
 	@JsonProperty("pkt_size") private Integer pkt_size;
@@ -20,14 +20,14 @@ public class Frame {
 	@JsonProperty("coded_picture_number") private Integer coded_picture_number;
 	@JsonProperty("media_type") private String media_type;
 	@JsonProperty("pkt_pts") private Integer pkt_pts;
-	@JsonProperty("pkt_duration_time") private Float pkt_duration_time;
+	@JsonProperty("pkt_duration_time") private Double pkt_duration_time;
 	@JsonProperty("pict_type") private String pict_type;
 	@JsonProperty("width") private Integer width;
 	@JsonProperty("repeat_pict") private Integer repeat_pict;
 	@JsonProperty("interlaced_frame") private Integer interlaced_frame;
-	@JsonProperty("pkt_dts_time") private Float pkt_dts_time;
+	@JsonProperty("pkt_dts_time") private Double pkt_dts_time;
 	@JsonProperty("best_effort_timestamp") private Integer best_effort_timestamp;
-	@JsonProperty("best_effort_timestamp_time") private Float best_effort_timestamp_time;
+	@JsonProperty("best_effort_timestamp_time") private Double best_effort_timestamp_time;
 	@JsonProperty("key_frame") private Integer key_frame;
 	@JsonProperty("height") private Integer height;
 
@@ -87,11 +87,11 @@ public class Frame {
         this.pkt_dts = pkt_dts;
     }
 
-    public Float getPkt_pts_time() {
+    public Double getPkt_pts_time() {
         return pkt_pts_time;
     }
 
-    public void setPkt_pts_time(Float pkt_pts_time) {
+    public void setPkt_pts_time(Double pkt_pts_time) {
         this.pkt_pts_time = pkt_pts_time;
     }
 
@@ -175,11 +175,11 @@ public class Frame {
         this.pkt_pts = pkt_pts;
     }
 
-    public Float getPkt_duration_time() {
+    public Double getPkt_duration_time() {
         return pkt_duration_time;
     }
 
-    public void setPkt_duration_time(Float pkt_duration_time) {
+    public void setPkt_duration_time(Double pkt_duration_time) {
         this.pkt_duration_time = pkt_duration_time;
     }
 
@@ -215,11 +215,11 @@ public class Frame {
         this.interlaced_frame = interlaced_frame;
     }
 
-    public Float getPkt_dts_time() {
+    public Double getPkt_dts_time() {
         return pkt_dts_time;
     }
 
-    public void setPkt_dts_time(Float pkt_dts_time) {
+    public void setPkt_dts_time(Double pkt_dts_time) {
         this.pkt_dts_time = pkt_dts_time;
     }
 
@@ -231,11 +231,11 @@ public class Frame {
         this.best_effort_timestamp = best_effort_timestamp;
     }
 
-    public Float getBest_effort_timestamp_time() {
+    public Double getBest_effort_timestamp_time() {
         return best_effort_timestamp_time;
     }
 
-    public void setBest_effort_timestamp_time(Float best_effort_timestamp_time) {
+    public void setBest_effort_timestamp_time(Double best_effort_timestamp_time) {
         this.best_effort_timestamp_time = best_effort_timestamp_time;
     }
 
