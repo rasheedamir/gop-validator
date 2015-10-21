@@ -4,8 +4,20 @@ import org.apache.commons.io.Charsets;
 
 import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.util.*;
+import java.io.OutputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Scanner;
 
 /**
  * Created by Rasheed on 2015-09-07.
@@ -22,26 +34,70 @@ public class GopValidator
         List<File> mp4VideoOnly = filterMp4VideoFiles(mp4Only);
 
         Map<String, Frames> framesPerBitrate = new HashMap<>();
+        Map<String, String> catTsPerBitrate = new HashMap<>();
+        Map<String, String> mp4PerBitrate = new HashMap<>();
 
-        // find frames
+        // cat seg-*.ts segments into one ts segment
+        // cat seg-00*.ts > seg.ts --> works from shell or command line!
         for (File file: mp4VideoOnly)
         {
             String absolutePath = file.getAbsolutePath();
             String filePath = absolutePath.
                     substring(0, absolutePath.lastIndexOf(File.separator));
+            String bitrate = filePath.substring(filePath.lastIndexOf(File.separator) + 1, filePath.length());
+            String catTsFileName = filePath + "/seg.ts";
+            String segmentsFilePath = filePath + "/segments.txt";
+            List<File> tsFiles = getSegments(Paths.get(segmentsFilePath));
+
+            OutputStream out = new FileOutputStream(catTsFileName);
+
+            for (File tsFile : tsFiles)
+            {
+                byte[] buf = new byte[512];
+                InputStream in = new FileInputStream(tsFile);
+                int b;
+                while ( (b = in.read(buf)) >= 0)
+                {
+                    out.write(buf, 0, b);
+                    out.flush();
+                }
+            }
+            out.close();
+
+            catTsPerBitrate.put(bitrate, catTsFileName);
+        }
+
+        // convert the resulting ts segment into mp4
+        // ffmpeg -i seg.ts -c copy -bsf aac_adtstoasc seg.mp4
+        for (Map.Entry<String, String> entry: catTsPerBitrate.entrySet())
+        {
+            String absolutePath = entry.getValue();
+            String filePath = absolutePath.
+                    substring(0, absolutePath.lastIndexOf(File.separator));
+            String mp4Path = filePath + "/seg.mp4";
+            String command = "ffmpeg -y -i " + entry.getValue() + " -c copy -bsf aac_adtstoasc " + mp4Path;
+            convertCatTsToMp4(command);
+            mp4PerBitrate.put(entry.getKey(), mp4Path);
+        }
+
+        // find all frames
+        for (Map.Entry<String, String> entry: mp4PerBitrate.entrySet())
+        {
+            String absolutePath = entry.getValue();
+            String filePath = absolutePath.
+                    substring(0, absolutePath.lastIndexOf(File.separator));
             String bitrate = filePath.substring(filePath.lastIndexOf(File.separator)+1, filePath.length());
             String cmd = "ffprobe -show_frames -print_format json -select_streams 0:v -i " + absolutePath;
-            framesPerBitrate.put(bitrate, findFrames(cmd));
+            framesPerBitrate.put(bitrate, findFrames(cmd, filePath));
 
             System.out.println("processed bitrate - " + bitrate);
-
             //break;
         }
 
         Map<String, Collection<Integer>> bitratesIFramesLocations = new HashMap<>();
         Map<String, Collection<Double>> bitratesIFramesTimings = new HashMap<>();
 
-        // print index's of I frames
+        // find index's of iframes & the presentation timestamp of iframes
         for (Map.Entry<String, Frames> entry: framesPerBitrate.entrySet())
         {
             int index = 1;
@@ -67,6 +123,7 @@ public class GopValidator
         // pick up item zero
         Map.Entry<String, Collection<Integer>> firstEntry = bitratesIFramesLocations.entrySet().iterator().next();
 
+        // compare gop size's; compare the index when iframes appear
         for(Map.Entry<String, Collection<Integer>>  entry: bitratesIFramesLocations.entrySet())
         {
             Collection<Integer> copyFirstLocationsEntry = new ArrayList<>(firstEntry.getValue());
@@ -76,11 +133,11 @@ public class GopValidator
             if(copyFirstLocationsEntry.size() > 0)
             {
                 System.out.println(String.format("comparing index of %s with %s", firstEntry.getKey(), entry.getKey()));
-                System.out.println("GOP SIZE MISMATCH!");
+                System.out.println("OUCH... GOP SIZE MISMATCH!");
             }
         }
 
-        // pick up item zero
+        // compare pts when iframes appear
         Map.Entry<String, Collection<Double>> firstTimingsEntry = bitratesIFramesTimings.entrySet().iterator().next();
 
         for(Map.Entry<String, Collection<Double>>  entry: bitratesIFramesTimings.entrySet())
@@ -92,9 +149,27 @@ public class GopValidator
             if(copyFirstTimingsEntry.size() > 0)
             {
                 System.out.println(String.format("comparing timings of %s with %s", firstEntry.getKey(), entry.getKey()));
-                System.out.println("OUCH .... GOP TIMINGS SIZE MISMATCH!");
+                System.out.println("OUCH... GOP TIMINGS SIZE MISMATCH!");
             }
         }
+    }
+
+    private static List<File> getSegments(Path segmentsFile) throws Exception
+    {
+        List<File> files = new ArrayList<>();
+
+        Scanner fileIn = new Scanner(new File(segmentsFile.toString()), "UTF-8");
+
+        while (fileIn.hasNextLine())
+        {
+            String line = fileIn.nextLine();
+            //System.out.println(line);
+            String filePath = line.substring(line.indexOf('\'')+1, line.lastIndexOf('\''));
+            //System.out.println(filePath);
+            files.add(new File(filePath));
+        }
+
+        return files;
     }
 
     public static List<File> filterMp4VideoFiles(List<File> mp4Only) throws Exception
@@ -130,7 +205,42 @@ public class GopValidator
         }
     }
 
-    private static Frames findFrames(String command) throws Exception
+    private static void convertCatTsToMp4(String command) throws Exception
+    {
+        runCommand(command, "convert ts to mp4 -->");
+    }
+
+    private static void catTsFiles(String command) throws Exception
+    {
+        runCommand(command, "concatenate ts files --> ");
+    }
+
+    private static void runCommand(String command, String name) throws Exception
+    {
+        System.out.println("running command " + command);
+        BufferedReader brIn = null;
+        try
+        {
+            Process process = Runtime.getRuntime().exec(command);
+            brIn = new BufferedReader(new InputStreamReader(process.getInputStream()));
+            String line;
+            while (( line = brIn.readLine()) != null)
+            {
+                // do nothing!
+            }
+            process.waitFor();
+            if (process.exitValue() != 0)
+            {
+                throw new Exception(name + " command execution failed!");
+            }
+        }
+        finally
+        {
+            if (brIn == null) throw new AssertionError();
+            brIn.close();
+        }
+    }
+    private static Frames findFrames(String command, String filePath) throws Exception
     {
         System.out.println("running command " + command);
         StringBuilder json = new StringBuilder();
@@ -155,6 +265,9 @@ public class GopValidator
             if (brIn == null) throw new AssertionError();
             brIn.close();
         }
+        //write JSON to a file
+        String jsonFileName = filePath + "/frames.txt";
+        Files.write(Paths.get(jsonFileName), json.toString().getBytes());
         return Frames.fromJSON(json.toString());
     }
 
