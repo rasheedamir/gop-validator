@@ -1,6 +1,7 @@
 package io.as.media.gop;
 
 import org.apache.commons.io.Charsets;
+import org.apache.commons.io.IOUtils;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -26,59 +27,13 @@ public class GopValidator
 {
     public static void main(String[] args) throws Exception
     {
-        File root = new File("/tmp/roku");
+        File root = new File("/home/rasheed/roku");
         List<File> mp4Only = new ArrayList<>();
 
         searchForMp4Files(root, mp4Only);
 
-        List<File> mp4VideoOnly = filterMp4VideoFiles(mp4Only);
-
+        Map<String, String> mp4PerBitrate = findMp4PerBitrate(filterMp4VideoFiles(mp4Only));
         Map<String, Frames> framesPerBitrate = new HashMap<>();
-        Map<String, String> catTsPerBitrate = new HashMap<>();
-        Map<String, String> mp4PerBitrate = new HashMap<>();
-
-        // cat seg-*.ts segments into one ts segment
-        // cat seg-00*.ts > seg.ts --> works from shell or command line!
-        for (File file: mp4VideoOnly)
-        {
-            String absolutePath = file.getAbsolutePath();
-            String filePath = absolutePath.
-                    substring(0, absolutePath.lastIndexOf(File.separator));
-            String bitrate = filePath.substring(filePath.lastIndexOf(File.separator) + 1, filePath.length());
-            String catTsFileName = filePath + "/seg.ts";
-            String segmentsFilePath = filePath + "/segments.txt";
-            List<File> tsFiles = getSegments(Paths.get(segmentsFilePath));
-
-            OutputStream out = new FileOutputStream(catTsFileName);
-
-            for (File tsFile : tsFiles)
-            {
-                byte[] buf = new byte[512];
-                InputStream in = new FileInputStream(tsFile);
-                int b;
-                while ( (b = in.read(buf)) >= 0)
-                {
-                    out.write(buf, 0, b);
-                    out.flush();
-                }
-            }
-            out.close();
-
-            catTsPerBitrate.put(bitrate, catTsFileName);
-        }
-
-        // convert the resulting ts segment into mp4
-        // ffmpeg -i seg.ts -c copy -bsf aac_adtstoasc seg.mp4
-        for (Map.Entry<String, String> entry: catTsPerBitrate.entrySet())
-        {
-            String absolutePath = entry.getValue();
-            String filePath = absolutePath.
-                    substring(0, absolutePath.lastIndexOf(File.separator));
-            String mp4Path = filePath + "/seg.mp4";
-            String command = "ffmpeg -y -i " + entry.getValue() + " -c copy -bsf aac_adtstoasc " + mp4Path;
-            convertCatTsToMp4(command);
-            mp4PerBitrate.put(entry.getKey(), mp4Path);
-        }
 
         // find all frames
         for (Map.Entry<String, String> entry: mp4PerBitrate.entrySet())
@@ -135,6 +90,10 @@ public class GopValidator
                 System.out.println(String.format("comparing index of %s with %s", firstEntry.getKey(), entry.getKey()));
                 System.out.println("OUCH... GOP SIZE MISMATCH!");
             }
+            else
+            {
+                System.out.println(String.format("index all looks good %s with %s", firstEntry.getKey(), entry.getKey()));
+            }
         }
 
         // compare pts when iframes appear
@@ -151,7 +110,79 @@ public class GopValidator
                 System.out.println(String.format("comparing timings of %s with %s", firstEntry.getKey(), entry.getKey()));
                 System.out.println("OUCH... GOP TIMINGS SIZE MISMATCH!");
             }
+            else
+            {
+                System.out.println(String.format("timings all looks good %s with %s", firstEntry.getKey(), entry.getKey()));
+            }
         }
+    }
+
+    private static Map<String, String> catTsSegments(List<File> mp4VideosList) throws Exception
+    {
+        Map<String, String> mp4PerBitrate = new HashMap<>();
+        Map<String, String> catTsPerBitrate = new HashMap<>();
+
+        // cat seg-*.ts segments into one ts segment
+        // cat seg-00*.ts > seg.ts --> works from shell or command line!
+        for (File file: mp4VideosList)
+        {
+            String absolutePath = file.getAbsolutePath();
+            String filePath = absolutePath.
+                    substring(0, absolutePath.lastIndexOf(File.separator));
+            String bitrate = filePath.substring(filePath.lastIndexOf(File.separator) + 1, filePath.length());
+            String catTsFileName = filePath + "/seg.ts";
+            String segmentsFilePath = filePath + "/segments.txt";
+            List<File> tsFiles = getSegments(Paths.get(segmentsFilePath));
+
+            OutputStream fos = new FileOutputStream(catTsFileName);
+
+            try
+            {
+                for (File tsFile : tsFiles)
+                {
+                    InputStream in = new FileInputStream(tsFile);
+                    IOUtils.copyLarge(in, fos);
+                }
+            }
+            finally
+            {
+                IOUtils.closeQuietly(fos);
+            }
+
+            catTsPerBitrate.put(bitrate, catTsFileName);
+        }
+
+        // convert the resulting ts segment into mp4
+        // ffmpeg -i seg.ts -c copy -bsf aac_adtstoasc seg.mp4
+        for (Map.Entry<String, String> entry: catTsPerBitrate.entrySet())
+        {
+            String absolutePath = entry.getValue();
+            String filePath = absolutePath.
+                    substring(0, absolutePath.lastIndexOf(File.separator));
+            String mp4Path = filePath + "/seg.mp4";
+            String command = "ffmpeg -y -i " + entry.getValue() + " -c copy -bsf aac_adtstoasc " + mp4Path;
+            convertCatTsToMp4(command);
+            mp4PerBitrate.put(entry.getKey(), mp4Path);
+        }
+
+        return mp4PerBitrate;
+    }
+
+    private static Map<String, String> findMp4PerBitrate(List<File> mp4VideosList)
+    {
+        Map<String, String> mp4PerBitrate = new HashMap<>();
+
+        for (File file: mp4VideosList)
+        {
+            String absolutePath = file.getAbsolutePath();
+            String filePath = absolutePath.
+                    substring(0, absolutePath.lastIndexOf(File.separator));
+            String bitrate = filePath.substring(filePath.lastIndexOf(File.separator) + 1, filePath.length());
+
+            mp4PerBitrate.put(bitrate, file.getAbsolutePath());
+        }
+
+        return mp4PerBitrate;
     }
 
     private static List<File> getSegments(Path segmentsFile) throws Exception
